@@ -1,0 +1,10 @@
+<p>Hi {{ recipient.username }},</p>
+<p>
+  {% if is_owner %}Your location <strong>{{ location.name }}</strong> has a new review.
+  {% else %}A location you follow, <strong>{{ location.name }}</strong>, has a new review.{% endif %}
+</p>
+<p>{{ review.author.username }} rated it <strong>{{ review.rating }}/5</strong>:</p>
+<blockquote>{{ review.comment|linebreaksbr }}</blockquote>
+{% if not is_owner %}
+<p><small>You receive this because you subscribed to this location.</small></p>
+{% endif %}

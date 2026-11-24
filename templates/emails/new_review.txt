@@ -1,0 +1,11 @@
+{% autoescape off %}Hi {{ recipient.username }},
+
+{% if is_owner %}Your location "{{ location.name }}" has a new review.{% else %}A location you follow, "{{ location.name }}", has a new review.{% endif %}
+
+{{ review.author.username }} rated it {{ review.rating }}/5:
+
+{{ review.comment }}
+{% if not is_owner %}
+You receive this because you subscribed to this location. Unsubscribe via
+DELETE /api/locations/{{ location.pk }}/subscribe/
+{% endif %}{% endautoescape %}
