@@ -1,0 +1,48 @@
+[project]
+name = "location-map"
+version = "0.1.0"
+description = "REST API for a location popularity map (Django + DRF)."
+requires-python = ">=3.13"
+dependencies = [
+    "celery>=5.7.0",
+    "django>=6.1.3",
+    "django-environ>=0.14.0",
+    "django-filter>=26.2",
+    "django-redis>=7.0.0",
+    "djangorestframework>=3.18.3",
+    "drf-spectacular>=0.30.0",
+    "gunicorn>=27.0.1",
+    "pandas>=3.1.1",
+    "psycopg[binary]>=3.3.9",
+    "redis>=8.2.0",
+    "whitenoise>=6.12.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["**/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "DJ", "C4", "SIM", "RUF"]
+ignore = ["RUF012"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "config"]
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py"]
+# --ds wins over a DJANGO_SETTINGS_MODULE exported by .env / docker.
+addopts = "-ra --strict-markers --reuse-db --ds=config.settings.test"
+
+[dependency-groups]
+dev = [
+    "factory-boy>=3.3.3",
+    "freezegun>=1.5.5",
+    "pytest>=9.2.0",
+    "pytest-django>=4.14.0",
+    "ruff>=0.17.6",
+]
