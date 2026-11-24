@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.db import transaction
+from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
@@ -21,13 +22,18 @@ def register_user(*, username: str, email: str, password: str) -> User:
 
 
 def build_password_reset_url(user: User) -> str:
-    query = urlencode(
-        {
-            "uid": urlsafe_base64_encode(force_bytes(user.pk)),
-            "token": default_token_generator.make_token(user),
-        }
-    )
-    return f"{settings.FRONTEND_PASSWORD_RESET_URL}?{query}"
+    """Link sent in the reset email.
+
+    With `FRONTEND_PASSWORD_RESET_URL` set, it points at the SPA, which posts `uid` and
+    `token` to the API's confirm endpoint. Otherwise it points at the backend's own reset
+    page. Both share Django's token generator, so either can consume the token.
+    """
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    if settings.FRONTEND_PASSWORD_RESET_URL:
+        return f"{settings.FRONTEND_PASSWORD_RESET_URL}?{urlencode({'uid': uid, 'token': token})}"
+    path = reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token})
+    return f"{settings.SITE_URL.rstrip('/')}{path}"
 
 
 def request_password_reset(*, email: str) -> None:

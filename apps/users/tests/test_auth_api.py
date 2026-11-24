@@ -4,6 +4,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.test import Client
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -106,19 +107,28 @@ class TestCsrf:
         assert client.post(LOGOUT_URL).status_code == status.HTTP_403_FORBIDDEN
 
 
+def _extract_link(body: str) -> str:
+    return re.search(r"https?://\S+", body).group(0)
+
+
 class TestPasswordReset:
     def _extract_uid_and_token(self, body: str) -> tuple[str, str]:
-        url = re.search(r"https?://\S+", body).group(0)
-        query = parse_qs(urlparse(url).query)
+        query = parse_qs(urlparse(_extract_link(body)).query)
         return query["uid"][0], query["token"][0]
 
-    def test_full_reset_flow(self, api_client, user, django_capture_on_commit_callbacks):
+    def test_full_reset_flow_via_spa_and_api(
+        self, api_client, user, settings, django_capture_on_commit_callbacks
+    ):
+        settings.FRONTEND_PASSWORD_RESET_URL = "https://app.example.com/reset-password"
         with django_capture_on_commit_callbacks(execute=True):
             response = api_client.post(RESET_URL, {"email": user.email.upper()})
 
         assert response.status_code == status.HTTP_202_ACCEPTED
         assert len(mail.outbox) == 1
         assert mail.outbox[0].to == [user.email]
+        assert _extract_link(mail.outbox[0].body).startswith(
+            "https://app.example.com/reset-password?uid="
+        )
         uid, token = self._extract_uid_and_token(mail.outbox[0].body)
 
         new_password = "An0ther-str0ng-pass"
@@ -135,6 +145,57 @@ class TestPasswordReset:
             RESET_CONFIRM_URL, {"uid": uid, "token": token, "new_password": "Yet-an0ther-pass"}
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_default_link_opens_backend_reset_page(
+        self, api_client, user, settings, django_capture_on_commit_callbacks
+    ):
+        """Without an SPA configured, the emailed link works on its own."""
+        settings.FRONTEND_PASSWORD_RESET_URL = ""
+        settings.SITE_URL = "http://localhost:8000"
+        with django_capture_on_commit_callbacks(execute=True):
+            api_client.post(RESET_URL, {"email": user.email})
+        link = _extract_link(mail.outbox[0].body)
+        assert link.startswith("http://localhost:8000/accounts/reset/")
+
+        browser = Client()
+        # Django swaps the token from the URL into the session and redirects to a
+        # token-free URL, so the token can't leak through the Referer header.
+        form_page = browser.get(urlparse(link).path, follow=True)
+        assert form_page.status_code == 200
+        assert form_page.context["validlink"] is True
+        set_password_url = form_page.redirect_chain[-1][0]
+
+        new_password = "Fr0m-the-email-link"
+        done = browser.post(
+            set_password_url,
+            {"new_password1": new_password, "new_password2": new_password},
+            follow=True,
+        )
+
+        assert done.redirect_chain[-1][0] == reverse("password_reset_complete")
+        user.refresh_from_db()
+        assert user.check_password(new_password)
+        # Single use: opening the same link again shows the "invalid link" page.
+        reopened = Client().get(urlparse(link).path, follow=True)
+        assert reopened.context["validlink"] is False
+
+    def test_backend_reset_page_validates_password(
+        self, user, settings, django_capture_on_commit_callbacks
+    ):
+        settings.FRONTEND_PASSWORD_RESET_URL = ""
+        with django_capture_on_commit_callbacks(execute=True):
+            Client().post(RESET_URL, {"email": user.email}, content_type="application/json")
+        browser = Client()
+        form_page = browser.get(urlparse(_extract_link(mail.outbox[0].body)).path, follow=True)
+
+        response = browser.post(
+            form_page.redirect_chain[-1][0], {"new_password1": "123", "new_password2": "123"}
+        )
+
+        assert response.status_code == 200
+        assert response.context["form"].errors
+        user.refresh_from_db()
+        assert user.check_password(DEFAULT_PASSWORD)
 
     def test_unknown_email_returns_same_response_and_sends_nothing(
         self, api_client, django_capture_on_commit_callbacks

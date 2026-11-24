@@ -91,10 +91,11 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 PASSWORD_RESET_TIMEOUT = env.int("PASSWORD_RESET_TIMEOUT", default=60 * 60 * 3)
-# Frontend page that receives `uid` and `token` and calls the reset-confirm endpoint.
-FRONTEND_PASSWORD_RESET_URL = env(
-    "FRONTEND_PASSWORD_RESET_URL", default="http://localhost:3000/reset-password"
-)
+# Public base URL of this backend, used for absolute links in emails (no request in Celery).
+SITE_URL = env("SITE_URL", default="http://localhost:8000")
+# Optional SPA page that receives `?uid=&token=` and calls the API's reset-confirm endpoint.
+# Empty (default): reset emails link to the backend's own page at /accounts/reset/.
+FRONTEND_PASSWORD_RESET_URL = env("FRONTEND_PASSWORD_RESET_URL", default="")
 
 # Session + cookie authentication (no JWT).
 SESSION_COOKIE_HTTPONLY = True

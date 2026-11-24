@@ -91,10 +91,17 @@ are anonymous, so they are wrapped in `csrf_protect` explicitly to block login C
 endpoints are also rate limited through the `auth` throttle scope.
 
 **Password reset:** `POST /api/auth/password-reset/ {email}` always returns `202`, so it
-can't be used to find out which emails have accounts. The email contains
-`FRONTEND_PASSWORD_RESET_URL?uid=…&token=…`. The frontend then calls
-`POST /api/auth/password-reset/confirm/ {uid, token, new_password}`. Tokens come from Django's
-`default_token_generator`, so they expire (`PASSWORD_RESET_TIMEOUT`) and work only once.
+can't be used to find out which emails have accounts. Where the emailed link points depends
+on `FRONTEND_PASSWORD_RESET_URL`:
+
+- **Empty (default):** `SITE_URL/accounts/reset/<uid>/<token>/`, a page served by this
+  backend using Django's `PasswordResetConfirmView`. It works without any frontend: open the
+  link, choose a password, done.
+- **Set to an SPA page:** `FRONTEND_PASSWORD_RESET_URL?uid=…&token=…`. The SPA then calls
+  `POST /api/auth/password-reset/confirm/ {uid, token, new_password}`.
+
+Both use Django's `default_token_generator`, so tokens expire (`PASSWORD_RESET_TIMEOUT`) and
+work only once. Passwords are checked by `AUTH_PASSWORD_VALIDATORS` in both cases.
 
 ---
 
