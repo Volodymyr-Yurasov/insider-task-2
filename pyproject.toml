@@ -21,6 +21,12 @@ dependencies = [
 [tool.uv]
 package = false
 
+# Black and `ruff format` share line length, target and excludes, so they agree on output.
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+extend-exclude = '/migrations/'
+
 [tool.ruff]
 line-length = 100
 target-version = "py313"
@@ -40,6 +46,7 @@ addopts = "-ra --strict-markers --reuse-db --ds=config.settings.test"
 
 [dependency-groups]
 dev = [
+    "black>=26.10.1",
     "factory-boy>=3.3.3",
     "freezegun>=1.5.5",
     "pytest>=9.2.0",

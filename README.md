@@ -123,7 +123,7 @@ docker compose up -d db redis mailpit    # infrastructure only; ports published 
 #   EMAIL_HOST=localhost                        (port 1025 stays the same)
 uv run python manage.py migrate
 uv run python manage.py runserver
-uv run ruff check . && uv run ruff format --check .
+uv run ruff check . && uv run black --check .   # lint + formatting (black and ruff format agree)
 ```
 
 ---

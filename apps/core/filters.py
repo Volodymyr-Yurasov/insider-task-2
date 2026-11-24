@@ -11,9 +11,11 @@ class NullsLastOrderingFilter(OrderingFilter):
         if not ordering:
             return queryset
         expressions = [
-            F(field[1:]).desc(nulls_last=True)
-            if field.startswith("-")
-            else F(field).asc(nulls_last=True)
+            (
+                F(field[1:]).desc(nulls_last=True)
+                if field.startswith("-")
+                else F(field).asc(nulls_last=True)
+            )
             for field in ordering
         ]
         return queryset.order_by(*expressions, "-pk")
