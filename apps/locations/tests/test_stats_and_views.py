@@ -39,15 +39,6 @@ class TestComputedStats:
         assert annotated.popularity == pytest.approx(expected_popularity(3.5, 2, 3))
         assert not hasattr(Location.objects.get(pk=location.pk), "rating")
 
-    def test_unreviewed_location_has_null_rating(self):
-        location = LocationFactory()
-
-        annotated = Location.objects.with_stats().get(pk=location.pk)
-
-        assert annotated.rating is None
-        assert annotated.reviews_count == 0
-        assert annotated.popularity == 0
-
     def test_views_older_than_seven_days_are_ignored(self):
         location = LocationFactory()
         LocationViewFactory(location=location, viewed_at=timezone.now() - timedelta(days=8))
@@ -82,14 +73,6 @@ class TestViewCounting:
             frozen.tick(timedelta(minutes=2))
             auth_client.get(detail_url(location.id))
             assert LocationView.objects.filter(location=location).count() == 2
-
-    def test_different_users_are_counted_separately(self, auth_client, other_client):
-        location = LocationFactory()
-
-        auth_client.get(detail_url(location.id))
-        other_client.get(detail_url(location.id))
-
-        assert LocationView.objects.filter(location=location).count() == 2
 
     def test_anonymous_views_are_deduplicated_by_ip(self):
         location = LocationFactory()

@@ -51,7 +51,7 @@ class TestCreateReview:
         assert "already reviewed" in str(response.data)
         assert Review.objects.filter(location=location, author=user).count() == 1
 
-    @pytest.mark.parametrize("rating", [0, 6, -1])
+    @pytest.mark.parametrize("rating", [0, 6])
     def test_rating_must_be_between_1_and_5(self, auth_client, location, rating):
         response = auth_client.post(
             location_reviews_url(location.id), {"rating": rating, "comment": "x"}

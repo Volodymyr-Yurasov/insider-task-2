@@ -41,8 +41,8 @@ def locations():
     return park, museum
 
 
-def test_csv_export(api_client, locations):
-    response = api_client.get(EXPORT_URL, {"file_format": "csv"})
+def test_csv_export_is_the_default(api_client, locations):
+    response = api_client.get(EXPORT_URL)  # no file_format: CSV
 
     assert response.status_code == 200
     assert response["Content-Type"].startswith("text/csv")
@@ -74,10 +74,6 @@ def test_export_respects_filters(api_client, locations):
     response = api_client.get(EXPORT_URL, {"file_format": "json", "category_slug": "parks"})
 
     assert [r["id"] for r in json.loads(response.content)] == [park.id]
-
-
-def test_export_defaults_to_csv(api_client, locations):
-    assert api_client.get(EXPORT_URL)["Content-Type"].startswith("text/csv")
 
 
 def test_unknown_format_is_rejected(api_client):

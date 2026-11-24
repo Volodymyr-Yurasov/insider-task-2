@@ -44,11 +44,15 @@ class TestCreate:
         assert response.data["popularity"] == 0
         assert response.data["created_at"] and response.data["updated_at"]
 
-    def test_anonymous_cannot_create(self, api_client, payload):
-        response = api_client.post(LIST_URL, payload)
+    def test_anonymous_cannot_write(self, api_client, payload):
+        existing = LocationFactory()
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-        assert not Location.all_objects.exists()
+        assert api_client.post(LIST_URL, payload).status_code == status.HTTP_403_FORBIDDEN
+        assert api_client.patch(detail_url(existing.id), {"name": "x"}).status_code == 403
+        assert api_client.delete(detail_url(existing.id)).status_code == 403
+        assert list(Location.all_objects.all()) == [existing]
+        existing.refresh_from_db()
+        assert existing.name != "x" and existing.deleted_at is None
 
     def test_author_cannot_be_spoofed(self, auth_client, user, other_user, payload):
         response = auth_client.post(LIST_URL, {**payload, "author": other_user.id})
@@ -92,17 +96,15 @@ class TestUpdateDelete:
         assert other_client.patch(detail_url(location.id), {"name": "x"}).status_code == 403
         assert other_client.delete(detail_url(location.id)).status_code == 403
 
-    def test_anonymous_cannot_update(self, api_client):
-        location = LocationFactory()
-
-        assert api_client.patch(detail_url(location.id), {"name": "x"}).status_code == 403
-
-    def test_admin_can_update_any_location(self, admin_client):
+    def test_admin_can_update_and_delete_any_location(self, admin_client):
         location = LocationFactory()
 
         response = admin_client.patch(detail_url(location.id), {"name": "By admin"})
-
         assert response.status_code == status.HTTP_200_OK
+        assert response.data["name"] == "By admin"
+
+        assert admin_client.delete(detail_url(location.id)).status_code == 204
+        assert Location.all_objects.get(pk=location.pk).deleted_at is not None
 
     def test_delete_is_soft(self, auth_client, user, api_client):
         location = LocationFactory(author=user)
@@ -116,11 +118,6 @@ class TestUpdateDelete:
         assert not Location.objects.filter(pk=location.pk).exists()
         assert api_client.get(detail_url(location.id)).status_code == status.HTTP_404_NOT_FOUND
         assert api_client.get(LIST_URL).data["count"] == 0
-
-    def test_admin_can_delete_any_location(self, admin_client):
-        location = LocationFactory()
-
-        assert admin_client.delete(detail_url(location.id)).status_code == 204
 
 
 class TestRead:

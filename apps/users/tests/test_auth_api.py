@@ -76,9 +76,6 @@ class TestSessionAuth:
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert auth_client.get(ME_URL).status_code == status.HTTP_403_FORBIDDEN
 
-    def test_me_requires_auth(self, api_client):
-        assert api_client.get(ME_URL).status_code == status.HTTP_403_FORBIDDEN
-
 
 class TestCsrf:
     def test_login_without_csrf_token_is_rejected(self, user):

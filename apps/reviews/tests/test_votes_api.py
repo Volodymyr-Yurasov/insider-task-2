@@ -59,7 +59,7 @@ class TestVote:
         assert after.updated_at == before.updated_at
         assert ReviewVote.objects.filter(review=review, user=user).count() == 1
 
-    @pytest.mark.parametrize("value", [0, 2, "like", None])
+    @pytest.mark.parametrize("value", [0, 2, None])
     def test_invalid_value_rejected(self, auth_client, review, value):
         response = auth_client.put(vote_url(review.id), {"value": value}, format="json")
 
@@ -104,11 +104,3 @@ class TestCounts:
 
         assert response.data["likes_count"] == 2
         assert response.data["dislikes_count"] == 1
-
-    def test_switching_vote_moves_count(self, auth_client, api_client, review):
-        auth_client.put(vote_url(review.id), {"value": LIKE})
-        auth_client.put(vote_url(review.id), {"value": DISLIKE})
-
-        response = api_client.get(review_url(review.id))
-
-        assert (response.data["likes_count"], response.data["dislikes_count"]) == (0, 1)

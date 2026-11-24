@@ -70,14 +70,10 @@ class TestFilters:
 
 
 class TestOrdering:
-    def test_default_is_newest_first(self, api_client):
+    def test_order_by_created_at(self, api_client):
         old, new = LocationFactory(), LocationFactory()
 
-        assert ids(api_client.get(LIST_URL)) == [new.id, old.id]
-
-    def test_order_by_created_at_ascending(self, api_client):
-        old, new = LocationFactory(), LocationFactory()
-
+        assert ids(api_client.get(LIST_URL)) == [new.id, old.id]  # default: newest first
         assert ids(api_client.get(LIST_URL, {"ordering": "created_at"})) == [old.id, new.id]
 
     def test_order_by_rating_puts_unrated_last(self, api_client):
