@@ -1,0 +1,34 @@
+{% extends "drf_spectacular/swagger_ui.html" %}
+
+{% block head %}
+{{ block.super }}
+<script>
+  // drf-spectacular bakes the CSRF token into the page at load time, but Django rotates the
+  // token on every login, so after logging in from Swagger all writes would fail with 403.
+  // Runs before Swagger UI loads: whenever Swagger attaches the CSRF header, replace its
+  // value with the live `csrftoken` cookie.
+  (() => {
+    const headerName = "{{ csrf_header_name|escapejs }}".toLowerCase();
+    const readCsrfCookie = () => {
+      const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+      return match ? decodeURIComponent(match[1]) : null;
+    };
+    const originalFetch = window.fetch.bind(window);
+
+    window.fetch = (input, init) => {
+      const token = readCsrfCookie();
+      const headers = init && init.headers;
+      if (token && headers) {
+        if (headers instanceof Headers) {
+          if (headers.has(headerName)) headers.set(headerName, token);
+        } else {
+          for (const key of Object.keys(headers)) {
+            if (key.toLowerCase() === headerName) headers[key] = token;
+          }
+        }
+      }
+      return originalFetch(input, init);
+    };
+  })();
+</script>
+{% endblock head %}

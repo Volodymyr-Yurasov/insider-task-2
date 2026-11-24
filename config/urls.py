@@ -8,7 +8,12 @@ api_patterns = [
     path("", include("apps.reviews.urls")),
     path("", include("apps.notifications.urls")),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
+    path(
+        "docs/",
+        # Custom template: keeps the CSRF header in sync with the cookie after login.
+        SpectacularSwaggerView.as_view(url_name="schema", template_name="docs/swagger_ui.html"),
+        name="docs",
+    ),
 ]
 
 urlpatterns = [
