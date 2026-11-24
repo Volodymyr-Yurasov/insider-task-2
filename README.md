@@ -53,6 +53,56 @@ Services:
 - `worker`: Celery
 - `db`, `redis`, `mailpit`
 
+### Email in development (Mailpit)
+
+[Mailpit](https://mailpit.axllent.org/) is a fake mail server for development. It accepts every
+email the app sends, whatever the recipient address, and keeps it instead of delivering it.
+Nothing leaves your machine, so the seeded `@example.com` users can "receive" mail.
+
+It isn't a Python dependency. It runs as its own container, from the `axllent/mailpit`
+Docker image declared in `docker-compose.yml`. Django talks to it with its standard SMTP
+backend, like any other mail server.
+
+Mailpit listens on two ports:
+
+| Port | Protocol | Use it to |
+|---|---|---|
+| **8025** | HTTP | **Read mail.** Open http://localhost:8025 for the inbox, or use the REST API (below). |
+| **1025** | SMTP | **Send mail.** The app delivers here: `EMAIL_HOST=mailpit`, `EMAIL_PORT=1025` inside Docker. A Django process running on the host uses `EMAIL_HOST=localhost`. |
+
+Reading mail from a script or test, for example to grab a password-reset link:
+
+```bash
+curl http://localhost:8025/api/v1/messages              # list (newest first)
+curl http://localhost:8025/api/v1/message/<ID>          # one message: headers, text, HTML
+curl -X DELETE http://localhost:8025/api/v1/messages    # empty the inbox
+```
+
+What sends email:
+- **Password-reset requests**
+- **New reviews:** to the location's author and its subscribers
+
+Seeding, votes and review edits send nothing. Email always goes through the Celery `worker`,
+so if mail doesn't show up, check `docker compose logs worker`.
+
+Mailpit keeps mail **in memory**, so restarting its container empties the inbox. All ports are
+bound to `127.0.0.1`: reachable from your machine, not from the network.
+
+**Sending real email:** remove the `mailpit` service and point the same settings at a real
+SMTP provider. No code changes are needed:
+
+```env
+EMAIL_HOST=smtp.your-provider.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=true
+EMAIL_HOST_USER=...
+EMAIL_HOST_PASSWORD=...
+DEFAULT_FROM_EMAIL=Location Map <no-reply@your-domain.com>
+SITE_URL=https://api.your-domain.com
+```
+
+The sending domain also needs SPF, DKIM and DMARC DNS records, or mail will land in spam.
+
 ### Tests
 
 ```bash
@@ -66,8 +116,11 @@ Django's in-memory outbox.
 
 ```bash
 uv sync                                  # creates .venv from uv.lock
-docker compose up -d db redis mailpit    # infrastructure only
-# point DATABASE_URL / REDIS_CACHE_URL / CELERY_BROKER_URL / EMAIL_HOST at localhost in .env
+docker compose up -d db redis mailpit    # infrastructure only; ports published on 127.0.0.1
+# in .env, replace the Docker hostnames with localhost:
+#   DATABASE_URL=postgres://locmap:locmap@localhost:5432/locmap
+#   REDIS_CACHE_URL=redis://localhost:6379/0   CELERY_BROKER_URL=redis://localhost:6379/1
+#   EMAIL_HOST=localhost                        (port 1025 stays the same)
 uv run python manage.py migrate
 uv run python manage.py runserver
 uv run ruff check . && uv run ruff format --check .
