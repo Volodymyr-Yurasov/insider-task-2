@@ -14,8 +14,33 @@ Celery · pandas · drf-spectacular · Docker Compose · uv · pytest
 ```bash
 cp .env.example .env          # then set DJANGO_SECRET_KEY
 docker compose up -d --build
-docker compose exec web python manage.py createsuperuser
 ```
+
+### Demo data
+
+On every start, the `web` container runs `python manage.py seed` after migrations. The
+command adds:
+- an admin account
+- 5 users
+- 4 categories
+- 8 Kyiv locations
+- 21 reviews and 12 votes
+
+| Account | Password |
+|---|---|
+| `admin` (superuser) | `Admin-pass-123` (`SEED_ADMIN_PASSWORD`) |
+| `olena`, `taras`, `iryna`, `dmytro`, `sofia` | `Demo-pass-123` (`SEED_USER_PASSWORD`) |
+
+Running it again is safe:
+- **Nothing is duplicated or overwritten.** Each record is looked up by its natural key and
+  created only if it's missing. A changed password or a soft-deleted demo location stays
+  as it is.
+- **Containers starting at the same time** can't both seed: a PostgreSQL advisory lock lets
+  only one run at a time.
+- **No emails are sent.** Reviews and votes are bulk-inserted, which skips the
+  notification signal.
+
+Set `SEED_DATA=0` in `.env` to turn seeding off.
 
 | URL | What |
 |---|---|
@@ -23,12 +48,15 @@ docker compose exec web python manage.py createsuperuser
 | http://localhost:8000/admin/ | Django admin |
 | http://localhost:8025/ | Mailpit: every email the app sends (password reset, review notifications) |
 
-Services: `web` (gunicorn; runs migrations on start), `worker` (Celery), `db`, `redis`, `mailpit`.
+Services:
+- `web`: gunicorn; runs migrations and the demo seed when it starts
+- `worker`: Celery
+- `db`, `redis`, `mailpit`
 
 ### Tests
 
 ```bash
-docker compose run --rm -e RUN_MIGRATIONS=0 web pytest
+docker compose run --rm -e RUN_MIGRATIONS=0 -e SEED_DATA=0 web pytest
 ```
 
 Tests run against real PostgreSQL. Celery tasks run inline (eager mode), and emails go to
@@ -246,7 +274,8 @@ apps/
   reviews/              Review, ReviewVote
   notifications/        LocationSubscription, new-review emails
 templates/emails/       plain-text + HTML email templates
-docker/entrypoint.sh    migrations / collectstatic for the web container
+docker/entrypoint.sh    migrations, collectstatic and demo seed for the web container
+apps/core/management/commands/seed.py   idempotent demo data
 ```
 
 Each app splits its code the same way: `models` → `querysets` (reads) → `services` (writes

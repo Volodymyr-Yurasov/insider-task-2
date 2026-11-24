@@ -45,6 +45,7 @@ services:
     <<: *app
     environment:
       RUN_MIGRATIONS: "1"
+      SEED_DATA: ${SEED_DATA:-1}   # set SEED_DATA=0 in .env to skip demo data
     ports:
       - "8000:8000"
     healthcheck:
@@ -56,6 +57,10 @@ services:
   worker:
     <<: *app
     command: ["celery", "-A", "config", "worker", "--loglevel=INFO", "--concurrency=2"]
+    environment:
+      # Only `web` migrates and seeds, even if .env sets these.
+      RUN_MIGRATIONS: "0"
+      SEED_DATA: "0"
 
 volumes:
   postgres_data:
